@@ -53,8 +53,104 @@ def init_db():
     )
     ''')
 
+    # Bảng tài khoản đăng nhập hệ thống (Bảo mật thông tin CocoMeo)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS app_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        email TEXT NOT NULL,
+        reset_otp TEXT,
+        reset_otp_expiry TEXT
+    )
+    ''')
+
+    # Khởi tạo hoặc cập nhật tài khoản mặc định: cocomeo / Meo1234* / thamtuehy@gmail.com
+    cursor.execute("SELECT id, password FROM app_users WHERE username = 'cocomeo'")
+    user_row = cursor.fetchone()
+    if not user_row:
+        cursor.execute('''
+            INSERT INTO app_users (username, password, email)
+            VALUES ('cocomeo', 'Meo1234*', 'thamtuehy@gmail.com')
+        ''')
+    else:
+        # Đảm bảo email luôn chuẩn thamtuehy@gmail.com
+        cursor.execute("UPDATE app_users SET email = 'thamtuehy@gmail.com' WHERE username = 'cocomeo'")
+
     conn.commit()
     conn.close()
+
+def verify_user_credentials(username, password):
+    """Xác thực đăng nhập tài khoản hệ thống"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, password, email FROM app_users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row and row['password'] == password:
+        return True, dict(row)
+    return False, None
+
+def create_password_reset_otp(email):
+    """Tạo mã OTP 6 số để khôi phục mật khẩu gửi tới email"""
+    import random
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM app_users WHERE email = ?", (email,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None, None, "Email không tồn tại trong hệ thống tài khoản!"
+
+    otp = f"{random.randint(100000, 999999)}"
+    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+
+    cursor.execute('''
+        UPDATE app_users 
+        SET reset_otp = ?, reset_otp_expiry = ? 
+        WHERE id = ?
+    ''', (otp, expiry, row['id']))
+    conn.commit()
+    conn.close()
+
+    return otp, expiry, None
+
+def verify_and_reset_password(email, otp, new_password):
+    """Kiểm tra mã OTP và cập nhật mật khẩu mới"""
+    if not new_password or len(new_password) < 4:
+        return False, "Mật khẩu mới phải có ít nhất 4 ký tự!"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, reset_otp, reset_otp_expiry FROM app_users WHERE email = ?", (email,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return False, "Không tìm thấy tài khoản với email này!"
+
+    if not row['reset_otp'] or row['reset_otp'].strip() != otp.strip():
+        conn.close()
+        return False, "Mã xác nhận OTP không chính xác!"
+
+    now = datetime.now()
+    if row['reset_otp_expiry']:
+        expiry_dt = datetime.strptime(row['reset_otp_expiry'], '%Y-%m-%d %H:%M:%S')
+        if now > expiry_dt:
+            conn.close()
+            return False, "Mã xác nhận OTP đã hết hạn (chỉ có hiệu lực trong 15 phút)!"
+
+    # Cập nhật mật khẩu mới và xóa mã OTP đã dùng
+    cursor.execute('''
+        UPDATE app_users 
+        SET password = ?, reset_otp = NULL, reset_otp_expiry = NULL 
+        WHERE id = ?
+    ''', (new_password, row['id']))
+    conn.commit()
+    conn.close()
+
+    return True, "Cập nhật mật khẩu mới thành công! Bạn có thể đăng nhập ngay."
+
 
 def get_next_card_number(card_type):
     """Tính số thứ tự thẻ tiếp theo từ 1 đến 9999 cho từng loại thẻ"""

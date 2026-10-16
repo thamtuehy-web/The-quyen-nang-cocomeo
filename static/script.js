@@ -772,6 +772,8 @@ async function refreshCardDetail(cardId) {
 // 8. TẢI VÀ LỌC DANH SÁCH THẺ (CARDS TABLE)
 // ==============================================================
 async function fetchCards() {
+  if (!isAppLoggedIn()) return;
+
   const branch = document.getElementById('filterBranch').value;
   const type = document.getElementById('filterType').value;
   const status = document.getElementById('filterStatus').value;
@@ -1106,14 +1108,315 @@ function handleDeleteActiveCard() {
 }
 
 // ==============================================================
+// 10. HỆ THỐNG ĐĂNG NHẬP VÀO APP BẢO MẬT & QUÊN MẬT KHẨU
+// Tên đăng nhập: cocomeo | Mật khẩu: Meo1234*
+// ==============================================================
+function isAppLoggedIn() {
+  return !!(localStorage.getItem('cocomeo_app_session') || sessionStorage.getItem('cocomeo_app_session'));
+}
+
+function getAppAuthUsername() {
+  return localStorage.getItem('cocomeo_auth_username') || sessionStorage.getItem('cocomeo_auth_username') || 'cocomeo';
+}
+
+function updateAppAuthUI() {
+  const container = document.getElementById('userAuthBadgeContainer');
+  const mainWrapper = document.getElementById('mainAppWrapper');
+  const loginModal = document.getElementById('appLoginModal');
+
+  if (isAppLoggedIn()) {
+    if (loginModal) loginModal.classList.add('hidden');
+    if (mainWrapper) {
+      mainWrapper.classList.remove('filter', 'blur-sm', 'pointer-events-none', 'opacity-30');
+    }
+    if (container) {
+      const username = getAppAuthUsername();
+      container.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs" title="Tài khoản đang đăng nhập">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-600"></i>
+          <span>${username}</span>
+        </span>
+      `;
+    }
+  } else {
+    if (loginModal) loginModal.classList.remove('hidden');
+    if (mainWrapper) {
+      mainWrapper.classList.add('filter', 'blur-sm', 'pointer-events-none', 'opacity-30');
+    }
+    if (container) {
+      container.innerHTML = '';
+    }
+  }
+  lucide.createIcons();
+}
+
+async function handleAppLoginSubmit(e) {
+  e.preventDefault();
+  const username = document.getElementById('appUsernameInput').value.trim();
+  const password = document.getElementById('appPasswordInput').value.trim();
+  const remember = document.getElementById('rememberLoginCheck')?.checked;
+
+  if (!username || !password) {
+    Swal.fire('Thiếu thông tin', 'Vui lòng nhập tên đăng nhập và mật khẩu', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btnAppLoginSubmit');
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Đang xác thực...</span>`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Tên đăng nhập hoặc mật khẩu không chính xác!');
+    }
+
+    const storage = remember ? localStorage : sessionStorage;
+    storage.setItem('cocomeo_app_session', data.token);
+    storage.setItem('cocomeo_auth_username', data.username);
+    // Lưu quyền xóa dữ liệu thẻ
+    sessionStorage.setItem('cocomeo_admin_token', 'cocomeo-admin-authorized-session');
+
+    updateAppAuthUI();
+    updateAdminUI();
+    document.getElementById('appPasswordInput').value = '';
+
+    try {
+      confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+    } catch(err) {}
+
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: 'Đăng nhập thành công!',
+      text: `Chào mừng ${data.username} đến với Hệ thống CocoMeo!`,
+      showConfirmButton: false,
+      timer: 2500
+    });
+
+    await fetchCards();
+    if (allCardsCache && allCardsCache.length > 0) {
+      displayActiveCard(allCardsCache[0]);
+    }
+
+  } catch (err) {
+    Swal.fire('Đăng nhập thất bại', err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="log-in" class="w-5 h-5"></i> <span>Đăng Nhập Vào Hệ Thống</span>`;
+    lucide.createIcons();
+  }
+}
+
+function handleAppLogout() {
+  Swal.fire({
+    title: 'Đăng Xuất?',
+    text: 'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng CocoMeo?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#E11D48',
+    cancelButtonColor: '#94A3B8',
+    confirmButtonText: 'Đăng Xuất Ngay',
+    cancelButtonText: 'Ở lại'
+  }).then((res) => {
+    if (res.isConfirmed) {
+      localStorage.removeItem('cocomeo_app_session');
+      localStorage.removeItem('cocomeo_auth_username');
+      sessionStorage.removeItem('cocomeo_app_session');
+      sessionStorage.removeItem('cocomeo_auth_username');
+      sessionStorage.removeItem('cocomeo_admin_token');
+
+      updateAppAuthUI();
+      closeActiveCard();
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'info',
+        title: 'Đã đăng xuất',
+        text: 'Hệ thống đã được khóa để bảo mật thông tin.',
+        showConfirmButton: false,
+        timer: 2000
+      });
+    }
+  });
+}
+
+function togglePasswordVisibility(inputId, btnEl) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPass = input.type === 'password';
+  input.type = isPass ? 'text' : 'password';
+  btnEl.innerHTML = isPass ? `<i data-lucide="eye-off" class="w-4 h-4"></i>` : `<i data-lucide="eye" class="w-4 h-4"></i>`;
+  lucide.createIcons();
+}
+
+// ==============================================================
+// 11. XỬ LÝ QUÊN MẬT KHẨU & GỬI EMAIL TỚI thamtuehy@gmail.com
+// ==============================================================
+function openForgotPasswordModal() {
+  const modal = document.getElementById('forgotPasswordModal');
+  document.getElementById('forgotStep1').classList.remove('hidden');
+  document.getElementById('forgotStep2').classList.add('hidden');
+  document.getElementById('resetOtpInput').value = '';
+  document.getElementById('resetNewPasswordInput').value = '';
+  document.getElementById('resetConfirmPasswordInput').value = '';
+  const hintEl = document.getElementById('resetOtpDemoHint');
+  if (hintEl) {
+    hintEl.classList.add('hidden');
+    hintEl.innerText = '';
+  }
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeForgotPasswordModal() {
+  document.getElementById('forgotPasswordModal').classList.add('hidden');
+}
+
+function backToForgotStep1() {
+  document.getElementById('forgotStep2').classList.add('hidden');
+  document.getElementById('forgotStep1').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+async function handleSendResetOtp() {
+  const email = document.getElementById('forgotEmailInput').value.trim() || 'thamtuehy@gmail.com';
+  const btn = document.getElementById('btnSendOtpSubmit');
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Đang gửi mã...</span>`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Có lỗi khi gửi mã OTP');
+    }
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã Gửi Mã Xác Nhận!',
+      html: `Mã OTP đã được gửi tới email <b>${data.email}</b>.<br><small class="text-slate-500">Vui lòng kiểm tra hộp thư để lấy mã 6 số tạo mật khẩu mới.</small>`,
+      confirmButtonText: 'Nhập Mã OTP Ngay',
+      confirmButtonColor: '#F97316'
+    });
+
+    document.getElementById('forgotStep1').classList.add('hidden');
+    document.getElementById('forgotStep2').classList.remove('hidden');
+
+    const hintEl = document.getElementById('resetOtpDemoHint');
+    if (hintEl && data.demo_otp) {
+      hintEl.classList.remove('hidden');
+      hintEl.innerHTML = `🔑 Mã OTP gửi tới email (kiểm tra nhanh): <span class="text-sm font-mono text-red-600 bg-white px-1.5 py-0.5 rounded border border-amber-300 font-black">${data.demo_otp}</span>`;
+      document.getElementById('resetOtpInput').value = data.demo_otp;
+    }
+
+    setTimeout(() => {
+      document.getElementById('resetNewPasswordInput').focus();
+    }, 200);
+
+  } catch (err) {
+    Swal.fire('Lỗi gửi email', err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="send" class="w-4 h-4"></i> <span>Gửi Mã Về Email</span>`;
+    lucide.createIcons();
+  }
+}
+
+async function handleConfirmPasswordReset() {
+  const email = document.getElementById('forgotEmailInput').value.trim() || 'thamtuehy@gmail.com';
+  const otp = document.getElementById('resetOtpInput').value.trim();
+  const newPass = document.getElementById('resetNewPasswordInput').value.trim();
+  const confirmPass = document.getElementById('resetConfirmPasswordInput').value.trim();
+
+  if (!otp || otp.length < 4) {
+    Swal.fire('Mã OTP không hợp lệ', 'Vui lòng nhập đầy đủ mã xác nhận gồm 6 số đã gửi về email!', 'warning');
+    return;
+  }
+
+  if (!newPass) {
+    Swal.fire('Thiếu mật khẩu', 'Vui lòng nhập mật khẩu mới!', 'warning');
+    return;
+  }
+
+  if (newPass !== confirmPass) {
+    Swal.fire('Mật khẩu không khớp', 'Mật khẩu xác nhận không trùng khớp với mật khẩu mới. Vui lòng kiểm tra lại!', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btnConfirmResetSubmit');
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Đang cập nhật...</span>`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        otp: otp,
+        new_password: newPass
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Có lỗi xảy ra khi cập nhật mật khẩu');
+    }
+
+    closeForgotPasswordModal();
+
+    // Tự động điền mật khẩu mới vừa đổi vào ô đăng nhập
+    document.getElementById('appPasswordInput').value = newPass;
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Tạo Mật Khẩu Mới Thành Công!',
+      html: `Đã cập nhật mật khẩu mới cho tài khoản <b>cocomeo</b>.<br>Bạn có thể bấm <b>Đăng Nhập</b> ngay bây giờ!`,
+      confirmButtonText: 'Đăng Nhập Ngay',
+      confirmButtonColor: '#F97316'
+    });
+
+  } catch (err) {
+    Swal.fire('Không thể đổi mật khẩu', err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Tạo Mật Khẩu Mới</span>`;
+    lucide.createIcons();
+  }
+}
+
+// ==============================================================
 // KHỞI ĐỘNG HỆ THỐNG
 // ==============================================================
 document.addEventListener('DOMContentLoaded', async () => {
   initBranch();
+  updateAppAuthUI();
   updateAdminUI();
-  await fetchCards();
-  if (allCardsCache && allCardsCache.length > 0) {
-    displayActiveCard(allCardsCache[0]);
+
+  if (isAppLoggedIn()) {
+    await fetchCards();
+    if (allCardsCache && allCardsCache.length > 0) {
+      displayActiveCard(allCardsCache[0]);
+    }
   }
+
   lucide.createIcons();
 });
