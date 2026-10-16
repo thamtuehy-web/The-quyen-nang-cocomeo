@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B6B" />
+      <stop offset="50%" stop-color="#FFA07A" />
+      <stop offset="100%" stop-color="#FFD166" />
+    </linearGradient>
+    <linearGradient id="crownGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE066" />
+      <stop offset="100%" stop-color="#F48C06" />
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF477E" />
+      <stop offset="50%" stop-color="#FF70A6" />
+      <stop offset="100%" stop-color="#FF9770" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="2" dy="4" stdDeviation="4" flood-opacity="0.18" />
+    </filter>
+  </defs>
+
+  <!-- Mascot Container (Left) -->
+  <g transform="translate(45, 25)" filter="url(#shadow)">
+    <!-- Cat Ears -->
+    <path d="M 30,70 L 15,20 L 65,45 Z" fill="#FF85A1" />
+    <path d="M 28,62 L 20,28 L 56,47 Z" fill="#FFAEC0" />
+    
+    <path d="M 110,70 L 125,20 L 75,45 Z" fill="#FF85A1" />
+    <path d="M 112,62 L 120,28 L 84,47 Z" fill="#FFAEC0" />
+
+    <!-- Cat Head -->
+    <ellipse cx="70" cy="85" rx="58" ry="48" fill="#FFFFFF" stroke="#FF6B8B" stroke-width="4"/>
+    
+    <!-- Power Crown -->
+    <path d="M 52,42 L 58,25 L 70,35 L 82,25 L 88,42 Z" fill="url(#crownGrad)" stroke="#E85D04" stroke-width="2"/>
+    <circle cx="70" cy="22" r="4" fill="#FFD166" />
+    <circle cx="58" cy="23" r="3" fill="#FF006E" />
+    <circle cx="82" cy="23" r="3" fill="#3A86FF" />
+
+    <!-- Cat Cheeks -->
+    <ellipse cx="38" cy="94" rx="10" ry="7" fill="#FFCCD5" opacity="0.8" />
+    <ellipse cx="102" cy="94" rx="10" ry="7" fill="#FFCCD5" opacity="0.8" />
+
+    <!-- Cat Eyes -->
+    <ellipse cx="48" cy="80" rx="8" ry="10" fill="#2B2D42" />
+    <ellipse cx="92" cy="80" rx="8" ry="10" fill="#2B2D42" />
+    <circle cx="50" cy="77" r="3.5" fill="#FFFFFF" />
+    <circle cx="94" cy="77" r="3.5" fill="#FFFFFF" />
+    <circle cx="46" cy="84" r="1.5" fill="#FFFFFF" />
+    <circle cx="90" cy="84" r="1.5" fill="#FFFFFF" />
+
+    <!-- Cute Cat Nose & Mouth -->
+    <path d="M 67,90 L 73,90 L 70,94 Z" fill="#FF477E" />
+    <path d="M 64,96 Q 70,102 70,96 Q 70,102 76,96" fill="none" stroke="#2B2D42" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Cute Whiskers -->
+    <line x1="22" y1="84" x2="6" y2="80" stroke="#FF758F" stroke-width="2" stroke-linecap="round" />
+    <line x1="22" y1="92" x2="4" y2="92" stroke="#FF758F" stroke-width="2" stroke-linecap="round" />
+    <line x1="118" y1="84" x2="134" y2="80" stroke="#FF758F" stroke-width="2" stroke-linecap="round" />
+    <line x1="118" y1="92" x2="136" y2="92" stroke="#FF758F" stroke-width="2" stroke-linecap="round" />
+
+    <!-- Magic Sparkle -->
+    <path d="M 125,50 Q 128,40 135,40 Q 128,40 125,30 Q 122,40 115,40 Q 122,40 125,50 Z" fill="#FFD166" />
+  </g>
+
+  <!-- Typography (Center-Right) -->
+  <g transform="translate(195, 45)">
+    <!-- Main Brand Name -->
+    <text x="0" y="55" font-family="'Nunito', 'Segoe UI', system-ui, sans-serif" font-size="56" font-weight="900" fill="#FF477E" letter-spacing="-1">Coco<tspan fill="#FF9F1C">Meo</tspan></text>
+    
+    <!-- Subtitle Badge -->
+    <rect x="0" y="70" width="280" height="26" rx="13" fill="#FFF0F5" />
+    <text x="140" y="88" font-family="'Nunito', 'Segoe UI', system-ui, sans-serif" font-size="12" font-weight="800" fill="#E63946" text-anchor="middle" letter-spacing="1.5">KIDS PLAYGROUND &amp; ENTERTAINMENT</text>
+    
+    <!-- Decorative Stars -->
+    <text x="245" y="42" font-size="20" fill="#FFD166">✨</text>
+    <circle cx="275" cy="50" r="3" fill="#FF70A6" />
+    <circle cx="288" cy="62" r="2" fill="#FFA07A" />
+  </g>
+</svg>

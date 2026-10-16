@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ thống Thẻ Quyền Năng & Siêu Quyền Năng - CocoMeo</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Canvas Confetti for celebrate -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <link rel="stylesheet" href="/static/style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cocoOrange: '#FF6B35',
+            cocoYellow: '#FFB703',
+            cocoPurple: '#7928CA',
+            cocoPink: '#FF477E',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="p-3 md:p-6 text-slate-800">
+
+  <!-- TOP BAR: CHI NHÁNH & THỜI GIAN THỰC ĐỒNG HỒ MÁY TÍNH -->
+  <div class="max-w-6xl mx-auto mb-6">
+    <div class="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm border border-pink-100">
+      
+      <!-- Chi nhánh hiện tại của nhân viên -->
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 font-bold shrink-0">
+          <i data-lucide="store" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Chi nhánh làm việc</div>
+          <select id="currentBranchSelect" onchange="changeActiveBranch(this.value)" class="font-bold text-slate-800 bg-transparent border-b-2 border-orange-400 focus:outline-none cursor-pointer py-0.5">
+            <option value="CS1 Hoà Xuân">CS1 Hoà Xuân</option>
+            <option value="CS2 Ngũ Hành Sơn">CS2 Ngũ Hành Sơn</option>
+            <option value="CS3 Phạm Hùng">CS3 Phạm Hùng</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Đồng hồ thời gian thực máy tính (Real-time clock) -->
+      <div class="flex items-center gap-3 bg-white/80 px-4 py-2 rounded-xl border border-slate-200/60 shadow-inner">
+        <i data-lucide="clock" class="w-5 h-5 text-pink-500 animate-pulse"></i>
+        <div class="text-right">
+          <div id="realtimeDate" class="text-xs font-bold text-slate-500">Đang tải...</div>
+          <div id="realtimeClock" class="text-lg font-black text-pink-600 tracking-wider font-mono">00:00:00</div>
+        </div>
+      </div>
+
+      <!-- Trạng thái Admin & Nút tra cứu -->
+      <div class="flex items-center gap-2">
+        <div id="adminBadgeContainer">
+          <!-- Rendered by updateAdminUI() -->
+        </div>
+        <button onclick="scrollToSection('cardsListSection')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm flex items-center gap-2 transition">
+          <i data-lucide="search" class="w-4 h-4"></i>
+          <span>Tra Cứu Thẻ</span>
+        </button>
+        <a href="/api/backup/download-db" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition flex items-center gap-1 text-xs font-bold" title="Tải về bản sao lưu CSDL (File .db) để lưu trữ an toàn">
+          <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-600"></i>
+          <span class="hidden sm:inline">Sao Lưu</span>
+        </a>
+        <button onclick="refreshData()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition" title="Làm mới">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- HERO SECTION: LOGO COCOMEO Ở GIỮA & TIÊU ĐỀ -->
+  <header class="max-w-4xl mx-auto text-center mb-8">
+    <div class="inline-block relative">
+      <!-- Logo CocoMeo ở giữa -->
+      <img src="/static/cocomeo_logo.png" onerror="this.src='/static/logo.svg'" alt="CocoMeo Logo" class="h-28 md:h-36 mx-auto mb-2 drop-shadow-md hover:scale-105 transition-transform duration-300 object-contain max-w-xs">
+    </div>
+    <h1 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight mt-1">
+      Hệ thống Thẻ Quyền Năng &amp; Siêu Quyền Năng
+    </h1>
+    <p class="text-sm md:text-base font-semibold text-slate-500 mt-1">
+      Quản lý phát hành thẻ, tích lượt sử dụng và tra cứu liên chi nhánh CocoMeo
+    </p>
+  </header>
+
+  <!-- 2 BUTTON TO RIÊNG BIỆT: THẺ QUYỀN NĂNG & THẺ SIÊU QUYỀN NĂNG -->
+  <section class="max-w-4xl mx-auto mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- BUTTON 1: THẺ QUYỀN NĂNG -->
+      <div onclick="openCardActionModal('power')" class="btn-power-card shimmer-effect rounded-3xl p-6 md:p-8 text-white cursor-pointer group shadow-xl">
+        <div class="flex items-start justify-between">
+          <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner mb-4">
+            <i data-lucide="zap" class="w-8 h-8 text-yellow-200"></i>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-black bg-white/25 backdrop-blur-sm tracking-widest uppercase">
+            6 Lượt Chơi
+          </span>
+        </div>
+        <h2 class="text-2xl md:text-3xl font-black tracking-tight mb-2 flex items-center gap-2">
+          THẺ QUYỀN NĂNG
+          <i data-lucide="chevron-right" class="w-6 h-6 transform group-hover:translate-x-2 transition-transform"></i>
+        </h2>
+        <p class="text-orange-100 text-sm font-medium mb-4">
+          Thẻ 6 ô tròn tích lượt. Nhận diện ngày giờ thực khi tích X, tự động gạch mờ khi hết 6 lượt.
+        </p>
+        <div class="flex items-center gap-2 text-xs font-bold bg-black/15 w-fit px-3 py-1.5 rounded-xl">
+          <i data-lucide="sparkles" class="w-4 h-4 text-yellow-300"></i>
+          <span>Bấm để Mở Thẻ Mới hoặc Xem Thẻ</span>
+        </div>
+      </div>
+
+      <!-- BUTTON 2: THẺ SIÊU QUYỀN NĂNG -->
+      <div onclick="openCardActionModal('super')" class="btn-super-card shimmer-effect rounded-3xl p-6 md:p-8 text-white cursor-pointer group shadow-xl">
+        <div class="flex items-start justify-between">
+          <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner mb-4">
+            <i data-lucide="crown" class="w-8 h-8 text-yellow-300"></i>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-black bg-white/25 backdrop-blur-sm tracking-widest uppercase">
+            30 Ngày VIP
+          </span>
+        </div>
+        <h2 class="text-2xl md:text-3xl font-black tracking-tight mb-2 flex items-center gap-2">
+          THẺ SIÊU QUYỀN NĂNG
+          <i data-lucide="chevron-right" class="w-6 h-6 transform group-hover:translate-x-2 transition-transform"></i>
+        </h2>
+        <p class="text-purple-100 text-sm font-medium mb-4">
+          Chơi thỏa thích trong 30 ngày từ ngày mở thẻ. Tự động gạch mờ dấu X khi thẻ hết hạn.
+        </p>
+        <div class="flex items-center gap-2 text-xs font-bold bg-black/15 w-fit px-3 py-1.5 rounded-xl">
+          <i data-lucide="star" class="w-4 h-4 text-yellow-300"></i>
+          <span>Bấm để Mở Thẻ Mới hoặc Xem Thẻ</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- KHU VỰC TRÌNH DIỄN THẺ HÌNH CHỮ NHẬT ĐANG CHỌN (ACTIVE CARD DISPLAY) -->
+  <section id="activeCardSection" class="max-w-4xl mx-auto mb-12 hidden">
+    <div class="glass-panel rounded-3xl p-6 md:p-8 border-2 border-pink-200">
+      
+      <!-- Header điều khiển thẻ -->
+      <div class="flex flex-col sm:flex-row items-center justify-between pb-5 border-b border-slate-200 gap-3 mb-6">
+        <div class="flex items-center gap-3">
+          <div id="activeCardIcon" class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+            <i data-lucide="credit-card" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="activeCardHeading" class="text-xl font-black text-slate-800">Chi Tiết Tấm Thẻ</h3>
+            <p class="text-xs text-slate-500 font-medium">Nhân viên tích lượt hoặc kiểm tra tình trạng thẻ tại đây</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="handleDeleteActiveCard()" class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition" title="Xóa thẻ này (Yêu cầu quyền Admin)">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Xóa Thẻ</span>
+          </button>
+          <button onclick="printCurrentCard()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>In Thẻ</span>
+          </button>
+          <button onclick="closeActiveCard()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            <span>Đóng lại</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KHUNG THẺ HÌNH CHỮ NHẬT THỰC TẾ (PHYSICAL CARD RECTANGLE) -->
+      <div class="max-w-2xl mx-auto print-area">
+        <div id="physicalCardElement" class="physical-card p-5 md:p-7 flex flex-col justify-between text-white relative shadow-2xl">
+          
+          <!-- Background trang trí nội bộ -->
+          <div class="card-inner-bg absolute inset-0 z-0"></div>
+
+          <!-- WATERMARK GẠCH MỜ KHI HẾT HẠN HOẶC HẾT LƯỢT (Ẩn mặc định, hiện khi hết) -->
+          <div id="cardWatermarkOverlay" class="watermark-overlay hidden">
+            <div class="watermark-big-x"></div>
+            <div id="cardWatermarkText" class="watermark-stamp">
+              THẺ ĐÃ HẾT LƯỢT SỬ DỤNG
+            </div>
+          </div>
+
+          <!-- Card Header: Số thứ tự thẻ & Chi nhánh & Logo CocoMeo nhỏ -->
+          <div class="relative z-10 flex items-start justify-between">
+            <div>
+              <div class="text-[11px] font-black uppercase tracking-widest opacity-85" id="cardTypeLabel">
+                THẺ QUYỀN NĂNG
+              </div>
+              <div class="text-3xl md:text-4xl font-black tracking-tight text-yellow-300 drop-shadow-sm font-mono mt-0.5" id="cardSequenceDisplay">
+                #0001
+              </div>
+              <!-- Thông tin Loại Thẻ Quyền Năng dưới số thứ tự: Vé Vui Chơi hoặc Combo 1/ Combo 2 -->
+              <div id="cardSubtypeContainer" class="mt-1">
+                <span id="cardSubtypeBadge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-black tracking-wide bg-black/25 backdrop-blur-sm border border-white/20 text-yellow-300 shadow-sm">
+                  <i data-lucide="tag" class="w-3 h-3"></i>
+                  <span id="cardSubtypeDisplay">Vé Vui Chơi</span>
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5 text-xs font-bold mt-1.5 text-white/90">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+                <span id="cardBranchDisplay">CS1 Hoà Xuân</span>
+              </div>
+            </div>
+
+            <!-- Logo CocoMeo mini ở góc trên bên phải của tấm thẻ -->
+            <div class="text-right">
+              <div class="bg-white/95 px-3 py-1 rounded-xl shadow-md inline-block">
+                <span class="font-black text-rose-500 text-sm tracking-tight">Coco<span class="text-amber-500">Meo</span></span>
+              </div>
+              <div class="text-[10px] font-bold text-white/80 mt-1 uppercase tracking-wider">VIP MEMBER</div>
+            </div>
+          </div>
+
+          <!-- Card Body: Thông tin Tên Bé & Tên Phụ Huynh & Ngày Mở Thẻ -->
+          <div class="relative z-10 my-3 bg-black/20 backdrop-blur-md rounded-2xl p-3.5 border border-white/15">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <div class="text-[10px] uppercase font-bold text-white/70 tracking-wider">Tên Bé</div>
+                <div id="cardChildNameDisplay" class="text-base md:text-lg font-black text-white truncate">
+                  Bé Nguyễn Minh An
+                </div>
+              </div>
+              <div>
+                <div class="text-[10px] uppercase font-bold text-white/70 tracking-wider">Tên Phụ Huynh</div>
+                <div id="cardParentNameDisplay" class="text-sm md:text-base font-bold text-white/95 truncate">
+                  Chị Lan Hương
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mt-2.5 pt-2 border-t border-white/10 text-xs">
+              <div>
+                <div class="text-[10px] uppercase font-bold text-white/70">Ngày mở thẻ (thực tế)</div>
+                <div id="cardCreatedDateDisplay" class="font-bold text-white font-mono">
+                  16/10/2026 21:42:00
+                </div>
+              </div>
+
+              <!-- Dành cho Thẻ Siêu Quyền Năng (30 ngày) -->
+              <div id="cardExpiryContainer" class="hidden">
+                <div class="text-[10px] uppercase font-bold text-yellow-300">Ngày hết thẻ (30 ngày)</div>
+                <div id="cardExpiryDateDisplay" class="font-black text-yellow-300 font-mono">
+                  15/11/2026 21:42:00
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer 1: DÀNH CHO THẺ QUYỀN NĂNG (6 QUẢ BÓNG & 6 Ô VUÔNG QUÀ PHÍA DƯỚI) -->
+          <div id="cardSlotsSection" class="relative z-10">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-black uppercase tracking-wider text-white/90 flex items-center gap-1.5" id="slotsSectionTitle">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                6 Quả Bóng Tích Lượt Sử Dụng:
+              </span>
+              <span id="slotsCountLabel" class="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-lg">
+                Đã dùng 0/6
+              </span>
+            </div>
+
+            <!-- 6 Cột: Quả bóng trên, Ô vuông nhỏ phía dưới -->
+            <div class="grid grid-cols-6 gap-2 md:gap-3 justify-items-center py-1" id="slotsContainer">
+              <!-- Render động 6 quả bóng và ô vuông qua Javascript -->
+            </div>
+
+            <!-- Chú thích riêng cho thẻ Combo -->
+            <div id="cardComboLegend" class="hidden mt-2.5 pt-1.5 border-t border-white/15 flex items-center justify-between text-[11px] font-bold text-white/90">
+              <span class="flex items-center gap-1">⚽ <b>Hàng trên:</b> 6 Quả bóng tích lượt</span>
+              <span class="flex items-center gap-1">🎁 <b>Hàng dưới:</b> 6 Ô vuông quà tặng</span>
+            </div>
+          </div>
+
+          <!-- Card Footer 2: DÀNH CHO THẺ SIÊU QUYỀN NĂNG (CHECK-IN HÀNG NGÀY & HẠN DÙNG) -->
+          <div id="cardSuperSection" class="relative z-10 hidden">
+            <div class="flex items-center justify-between bg-black/25 p-3 rounded-xl border border-white/20">
+              <div>
+                <div class="text-[11px] font-bold text-white/80">Tình trạng thời hạn 30 ngày:</div>
+                <div id="superRemainingDays" class="text-sm font-black text-emerald-300 flex items-center gap-1">
+                  <i data-lucide="shield-check" class="w-4 h-4"></i>
+                  <span>Đang có hiệu lực</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button onclick="handleSuperCheckin()" class="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 transition">
+                  <i data-lucide="user-check" class="w-4 h-4"></i>
+                  <span>Check-in Bé Đến Chơi</span>
+                </button>
+                <button onclick="toggleExpireDemo()" class="px-2.5 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl transition" title="Bật/Tắt test quá hạn 30 ngày">
+                  <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Lịch sử sử dụng / Check-in của thẻ -->
+      <div class="mt-8 pt-6 border-t border-slate-200">
+        <h4 class="font-bold text-sm text-slate-700 mb-3 flex items-center gap-2">
+          <i data-lucide="history" class="w-4 h-4 text-slate-500"></i>
+          <span>Nhật ký sử dụng thẻ</span>
+        </h4>
+        <div id="cardLogsContainer" class="space-y-2 max-h-48 overflow-y-auto text-xs">
+          <!-- Render logs -->
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- DANH SÁCH & BỘ LỌC TRA CỨU THẺ (CHO NHÂN VIÊN 3 CHI NHÁNH) -->
+  <section id="cardsListSection" class="max-w-6xl mx-auto mb-16">
+    <div class="glass-panel rounded-3xl p-6 shadow-sm border border-slate-200/70">
+      
+      <!-- Header Danh sách -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-pink-500"></i>
+            <span>Danh Sách Thẻ Đã Mở</span>
+          </h3>
+          <p class="text-xs text-slate-500 font-medium mt-0.5">Dữ liệu đồng bộ cho nhân viên 3 chi nhánh cùng truy cập và ghi thông tin</p>
+        </div>
+
+        <!-- Bộ lọc nhanh -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Lọc chi nhánh -->
+          <select id="filterBranch" onchange="filterCards()" class="text-xs font-bold bg-white border border-slate-200 px-3 py-2 rounded-xl focus:outline-none">
+            <option value="all">Tất cả chi nhánh</option>
+            <option value="CS1 Hoà Xuân">CS1 Hoà Xuân</option>
+            <option value="CS2 Ngũ Hành Sơn">CS2 Ngũ Hành Sơn</option>
+            <option value="CS3 Phạm Hùng">CS3 Phạm Hùng</option>
+          </select>
+
+          <!-- Lọc loại thẻ -->
+          <select id="filterType" onchange="filterCards()" class="text-xs font-bold bg-white border border-slate-200 px-3 py-2 rounded-xl focus:outline-none">
+            <option value="all">Tất cả loại thẻ</option>
+            <option value="power">Thẻ Quyền Năng (6 lượt)</option>
+            <option value="super">Thẻ Siêu Quyền Năng (30 ngày)</option>
+          </select>
+
+          <!-- Lọc trạng thái -->
+          <select id="filterStatus" onchange="filterCards()" class="text-xs font-bold bg-white border border-slate-200 px-3 py-2 rounded-xl focus:outline-none">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Còn hiệu lực / Đang sử dụng</option>
+            <option value="completed">Đã hết 6 lượt</option>
+            <option value="expired">Đã hết hạn 30 ngày</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Ô tìm kiếm tên bé, phụ huynh, số thẻ -->
+      <div class="relative mb-6">
+        <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+        <input type="text" id="searchInput" oninput="filterCards()" placeholder="Tìm kiếm theo Tên bé, Tên Phụ Huynh, Số thẻ (#0001) hoặc Số điện thoại..." class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-200 shadow-sm transition">
+      </div>
+
+      <!-- Bảng danh sách thẻ -->
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-500 uppercase tracking-wider">
+              <th class="py-3 px-4">Số Thẻ</th>
+              <th class="py-3 px-4">Loại Thẻ</th>
+              <th class="py-3 px-4">Bé &amp; Phụ Huynh</th>
+              <th class="py-3 px-4">Chi Nhánh</th>
+              <th class="py-3 px-4">Ngày Mở Thẻ</th>
+              <th class="py-3 px-4">Tiến Độ / Hạn Dùng</th>
+              <th class="py-3 px-4">Trạng Thái</th>
+              <th class="py-3 px-4 text-center">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="cardsTableBody" class="divide-y divide-slate-100 font-medium">
+            <tr>
+              <td colspan="8" class="text-center py-8 text-slate-400">
+                Đang tải dữ liệu thẻ...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==============================================================
+       MODAL 1: FORM MỞ THẺ MỚI (CHO THẺ QUYỀN NĂNG HOẶC SIÊU QUYỀN NĂNG)
+       ============================================================== -->
+  <div id="issueCardModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-100 transform transition-all">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div id="modalTypeBadge" class="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+            <i data-lucide="credit-card" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="modalTitle" class="text-lg font-black text-slate-800">Mở Thẻ Mới</h3>
+            <p class="text-xs text-slate-500 font-semibold" id="modalSubtitle">Hệ thống tự động nhảy số thẻ &amp; lấy ngày giờ thực tế</p>
+          </div>
+        </div>
+        <button onclick="closeIssueModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form nhập thông tin -->
+      <form id="issueCardForm" onsubmit="handleFormSubmit(event)" class="mt-5 space-y-4">
+        <input type="hidden" id="formCardType" value="power">
+
+        <!-- Hàng 1: Số thứ tự thẻ & Chi nhánh -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">
+              Số thứ tự thẻ <span class="text-rose-500 font-semibold">(Tự động 1-9999)</span>:
+            </label>
+            <div class="flex items-center gap-2 bg-slate-100 px-3 py-2.5 rounded-xl border border-slate-200">
+              <i data-lucide="hash" class="w-4 h-4 text-slate-400"></i>
+              <span id="formNextNumberDisplay" class="font-mono font-black text-lg text-pink-600">#0001</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">
+              Chi nhánh mở thẻ:
+            </label>
+            <select id="formBranch" required class="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl font-bold text-sm focus:outline-none focus:border-pink-500">
+              <option value="CS1 Hoà Xuân">CS1 Hoà Xuân</option>
+              <option value="CS2 Ngũ Hành Sơn">CS2 Ngũ Hành Sơn</option>
+              <option value="CS3 Phạm Hùng">CS3 Phạm Hùng</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Lựa chọn Thẻ Quyền Năng: Vé Vui Chơi hoặc Combo 1 / Combo 2 -->
+        <div id="formPowerSubtypeContainer" class="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl">
+          <label class="block text-xs font-bold text-amber-900 mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="tag" class="w-4 h-4 text-amber-600"></i>
+            <span>Chọn Loại Thẻ Quyền Năng:</span>
+          </label>
+          <div class="grid grid-cols-3 gap-2" id="formPowerSubtypeGroup">
+            <label class="subtype-option-label flex flex-col items-center justify-center p-2.5 rounded-xl border-2 border-amber-500 bg-white cursor-pointer hover:shadow-sm transition text-center shadow-xs">
+              <input type="radio" name="powerSubtypeRadio" value="Vé Vui Chơi" checked class="hidden" onchange="onSubtypeRadioChange(this)">
+              <span class="text-xs font-black text-slate-800">Vé Vui Chơi</span>
+              <span class="text-[10px] text-slate-500 font-semibold mt-0.5">6 lượt tiêu chuẩn</span>
+            </label>
+            <label class="subtype-option-label flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-amber-400 hover:shadow-sm transition text-center">
+              <input type="radio" name="powerSubtypeRadio" value="Combo 1" class="hidden" onchange="onSubtypeRadioChange(this)">
+              <span class="text-xs font-black text-slate-800">Combo 1</span>
+              <span class="text-[10px] text-amber-600 font-black mt-0.5">+ 10 xu/lượt</span>
+            </label>
+            <label class="subtype-option-label flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-amber-400 hover:shadow-sm transition text-center">
+              <input type="radio" name="powerSubtypeRadio" value="Combo 2" class="hidden" onchange="onSubtypeRadioChange(this)">
+              <span class="text-xs font-black text-slate-800">Combo 2</span>
+              <span class="text-[10px] text-amber-600 font-black mt-0.5">+ Nước &amp; Bim Bim</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Hàng 2: Ngày mở thẻ (Thời gian thực trên đồng hồ máy tính) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">
+            Ngày mở thẻ <span class="text-emerald-600 font-semibold">(Thời gian thực trên máy tính)</span>:
+          </label>
+          <div class="flex items-center justify-between bg-emerald-50 px-3.5 py-2.5 rounded-xl border border-emerald-200 text-emerald-800">
+            <div class="flex items-center gap-2">
+              <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-600"></i>
+              <span id="formRealtimeDisplay" class="font-mono font-bold text-sm">--/--/---- --:--:--</span>
+            </div>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-emerald-200/80 px-2 py-0.5 rounded text-emerald-800">Tự Động</span>
+          </div>
+        </div>
+
+        <!-- Dành cho Thẻ Siêu Quyền Năng: Thông báo ngày hết hạn sau 30 ngày -->
+        <div id="formSuperExpiryNotice" class="hidden p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs">
+          <div class="font-bold flex items-center gap-1.5 text-purple-700">
+            <i data-lucide="info" class="w-4 h-4"></i>
+            <span>Thời hạn thẻ Siêu Quyền Năng:</span>
+          </div>
+          <div class="mt-1 font-semibold">
+            Có giá trị sử dụng trong <b class="text-purple-600">30 ngày</b> kể từ ngày mở thẻ (đến <span id="formCalcExpiryDate" class="font-bold underline">--/--/----</span>). Quá 30 ngày sẽ tự động gạch mờ.
+          </div>
+        </div>
+
+        <!-- Hàng 3: Tên Bé -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Tên Bé <span class="text-rose-500">*</span>:
+          </label>
+          <input type="text" id="formChildName" required placeholder="Ví dụ: Bé Bống, Gia Khang, Tuấn Kiệt..." class="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-pink-500">
+        </div>
+
+        <!-- Hàng 4: Tên Phụ Huynh & Số Điện Thoại -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">
+              Tên Phụ Huynh <span class="text-rose-500">*</span>:
+            </label>
+            <input type="text" id="formParentName" required placeholder="Ví dụ: Mẹ Thảo, Bố Nam..." class="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-pink-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">
+              Số Điện Thoại (Zalo):
+            </label>
+            <input type="tel" id="formPhone" placeholder="0905 xxx xxx" class="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-pink-500">
+          </div>
+        </div>
+
+        <!-- Footer Buttons -->
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeIssueModal()" class="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition">
+            Hủy Bỏ
+          </button>
+          <button type="submit" id="btnSubmitIssue" class="px-6 py-2.5 rounded-xl text-sm font-black text-white bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 shadow-lg shadow-pink-500/25 flex items-center gap-2 transition">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Xác Nhận Mở Thẻ</span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ==============================================================
+       MODAL 2: XÁC NHẬN TÍCH Ô TRÒN SỬ DỤNG LƯỢT (THẺ QUYỀN NĂNG)
+       Khi nhân viên tích vào ô tròn trống: Hiện ngày giờ thực và chữ "Xác nhận"
+       ============================================================== -->
+  <div id="slotConfirmModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center">
+      
+      <!-- Icon check-in nổi bật -->
+      <div class="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3 shadow-inner">
+        <i data-lucide="check-circle-2" class="w-9 h-9"></i>
+      </div>
+
+      <h3 class="text-xl font-black text-slate-800">Xác Nhận Sử Dụng Lượt</h3>
+      <p class="text-xs text-slate-500 font-semibold mt-1">
+        Bé: <span id="confirmChildName" class="font-bold text-slate-700">--</span> • Ô lượt số <span id="confirmSlotNumber" class="font-bold text-amber-600 text-sm">--</span>
+      </p>
+
+      <!-- Khung hiển thị THỜI GIAN THỰC MÁY TÍNH -->
+      <div class="my-5 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-dashed border-amber-300 rounded-2xl p-4 text-center">
+        <div class="text-xs uppercase font-black tracking-wider text-amber-800 mb-1">
+          Thời Gian Thực Tế Lúc Xác Nhận:
+        </div>
+        <div id="confirmRealtimeClock" class="text-2xl font-black text-orange-600 font-mono tracking-wider">
+          --:--:--
+        </div>
+        <div id="confirmRealtimeDate" class="text-xs font-bold text-slate-600 mt-1">
+          Ngày --/--/----
+        </div>
+      </div>
+
+      <!-- Chi nhánh ghi nhận -->
+      <div class="mb-5 text-xs text-slate-500 font-medium flex items-center justify-center gap-1.5">
+        <i data-lucide="map-pin" class="w-4 h-4 text-orange-500"></i>
+        <span>Ghi nhận tại: <b id="confirmBranchName" class="text-slate-700">CS1 Hoà Xuân</b></span>
+      </div>
+
+      <!-- Nút xác nhận to rõ ràng -->
+      <div class="flex items-center gap-3">
+        <button type="button" onclick="closeSlotConfirmModal()" class="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-sm transition">
+          Hủy
+        </button>
+        <button type="button" id="btnConfirmSlotAction" onclick="executeSlotConfirm()" class="w-1/2 py-3 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-black rounded-2xl text-base shadow-lg shadow-red-500/30 flex items-center justify-center gap-2 transition">
+          <i data-lucide="check" class="w-5 h-5"></i>
+          <span>Xác Nhận</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==============================================================
+       MODAL 3: ĐĂNG NHẬP ADMIN (CHỈ KHI CẦN XÓA DỮ LIỆU THẺ)
+       Tên đăng nhập: cocomeo | Mật khẩu: 12121990
+       ============================================================== -->
+  <div id="adminLoginModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 md:p-7 shadow-2xl border border-slate-100 text-center">
+      
+      <div class="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 shadow-inner">
+        <i data-lucide="shield-alert" class="w-7 h-7"></i>
+      </div>
+
+      <h3 class="text-xl font-black text-slate-800">Xác Thực Quản Trị Viên</h3>
+      <p class="text-xs text-slate-500 font-semibold mt-1">
+        Thao tác xóa dữ liệu thẻ yêu cầu đăng nhập tài khoản Quản trị viên (Admin).
+      </p>
+
+      <form id="adminLoginForm" onsubmit="handleAdminLoginSubmit(event)" class="mt-5 space-y-3.5 text-left">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Tên đăng nhập:</label>
+          <div class="relative">
+            <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="adminUsernameInput" required placeholder="Tên đăng nhập (cocomeo)" class="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu:</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="password" id="adminPasswordInput" required placeholder="Nhập mật khẩu..." class="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 pt-3">
+          <button type="button" onclick="closeAdminLoginModal()" class="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition">
+            Hủy Bỏ
+          </button>
+          <button type="submit" id="btnAdminLoginSubmit" class="w-1/2 py-2.5 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-black rounded-xl text-sm shadow-md shadow-rose-500/25 flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="key" class="w-4 h-4"></i>
+            <span>Đăng Nhập</span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ==============================================================
+       MODAL 4: HỘI THOẠI QUÀ TẶNG COMBO (10 XU / NƯỚC + BIM BIM)
+       ============================================================== -->
+  <div id="comboGiftModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center">
+      
+      <!-- Icon quà tặng xinh xắn -->
+      <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 to-orange-400 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-orange-300/40">
+        <i data-lucide="gift" class="w-9 h-9"></i>
+      </div>
+
+      <h3 class="text-xl font-black text-slate-800">Quà Tặng Thẻ Combo</h3>
+      
+      <!-- Dòng chữ hội thoại chính xác theo yêu cầu người dùng: "Khách đã lấy 10 xu/ Nước + Bim Bim" -->
+      <div class="my-4 p-4 bg-amber-50 rounded-2xl border-2 border-dashed border-amber-300 text-center">
+        <p class="text-base font-black text-amber-900 leading-snug" id="comboGiftPromptText">
+          “Khách đã lấy 10 xu/ Nước + Bim Bim”
+        </p>
+        <div class="text-xs font-bold text-amber-700 mt-1.5" id="comboGiftSlotInfo">
+          Lượt bóng số 1 • Bé Nguyễn Minh An
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-500 font-medium mb-5">
+        Vui lòng chọn trạng thái của khách bên dưới:
+      </p>
+
+      <!-- 2 Button to, rõ ràng theo đúng yêu cầu -->
+      <div class="grid grid-cols-2 gap-3">
+        <!-- Button 1: Khách chưa lấy -> Ô vuông giữ nguyên vẹn -->
+        <button type="button" onclick="handleComboGiftDecision(false)" class="py-3 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs flex flex-col items-center justify-center gap-1 transition">
+          <span class="font-black text-sm text-slate-800">Khách Chưa Lấy</span>
+          <span class="text-[10px] text-slate-500 font-medium">(Ô vuông nguyên vẹn)</span>
+        </button>
+
+        <!-- Button 2: Xác nhận đã lấy -> Ô vuông gạch chéo -->
+        <button type="button" onclick="handleComboGiftDecision(true)" class="py-3 px-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl text-xs flex flex-col items-center justify-center gap-1 shadow-md shadow-emerald-500/25 transition">
+          <span class="font-black text-sm text-white">Xác Nhận Đã Lấy</span>
+          <span class="text-[10px] text-emerald-100 font-medium">(Gạch chéo ô vuông)</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/script.js"></script>
+</body>
+</html>
